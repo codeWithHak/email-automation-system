@@ -1,7 +1,7 @@
 # --------- IMPORTS ---------
 import sqlite3  # For storing emails locally in a database
 import os       # To check if files like 'token.json' exist
-
+from rich import print
 # Gmail API and authentication libraries from Google
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
