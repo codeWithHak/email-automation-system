@@ -22,31 +22,6 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 seen_message_ids = set()
 
 
-def extract_plain_text_body(msg_data):
-    """
-    Extracts and decodes the plain text body of the Gmail message.
-    """
-    try:
-        parts = msg_data["payload"]["parts"]
-        for part in parts:
-            if part["mimeType"] == "text/plain":
-                body_data = part["body"]["data"]
-                decoded_bytes = base64.urlsafe_b64decode(body_data)
-                return decoded_bytes.decode("utf-8")
-    except:
-        # If 'parts' not available, try root body
-        try:
-            body_data = msg_data["payload"]["body"]["data"]
-            decoded_bytes = base64.urlsafe_b64decode(body_data)
-            return decoded_bytes.decode("utf-8")
-        except:
-            return "[No body found]"
-
-
-
-
-
-
 
 # -------- AUTHENTICATION FUNCTION --------
 def authenticate_gmail():
@@ -101,13 +76,11 @@ def check_new_emails(service):
             sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown Sender")
             subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
             snippet = msg_data.get("snippet", "")
-            full_message = extract_plain_text_body(msg_data)
             # Print to terminal
             print("New Email Arrived!")
             print("From   :", sender)
             print("Subject:", subject)
             print("Preview:", snippet)
-            print("Full Message:", full_message)
             print("-" * 50)
 
     except Exception as e:
