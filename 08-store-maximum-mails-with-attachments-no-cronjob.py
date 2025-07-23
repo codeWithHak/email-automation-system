@@ -11,10 +11,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# Scheduler for running the fetch job on interval
-from apscheduler.schedulers.background import BackgroundScheduler
-
-
 
 
 # DATABASE CONFIG
@@ -44,7 +40,8 @@ create_attachment_table_query = """
             )
                 
                 """
-
+# drop_mail_table_query = "DROP TABLE huzair_mails"
+# drop_attachment_table_query = "DROP TABLE huzair_attachments"
 
 cursor.execute(create_mail_table_query)
 cursor.execute(create_attachment_table_query)
@@ -144,7 +141,7 @@ def check_new_emails(service):
         results = service.users().messages().list(
             userId="me",
             labelIds=["INBOX"],
-            maxResults=1
+            maxResults=500
         ).execute()
 
         messages = results.get("messages", [])
@@ -185,12 +182,13 @@ def check_new_emails(service):
                     with open(file_path, "wb") as f:
                         f.write(file_data)
 
-                    insert_attachment_query = f"INSERT INTO huzair_attachments (email_id, file_name, file_path, file_type) VALUES('{msg_id}', '{file_name}', '{file_path}', '{file_type}')"
-                    cursor.execute(insert_attachment_query)
+                    cursor.execute(
+                        "INSERT INTO huzair_attachments (email_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)",
+                        (msg_id, file_name, file_path, file_type)
+                    )
+                print("Attachment Stored In Database")
 
-                    print("Attachment Stored In Database")
             headers = msg_data["payload"]["headers"]
-            print(headers)
             sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown Sender")
             subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
             date = next((h["value"] for h in headers if h["name"] == "Date"), "No Subject")
@@ -205,8 +203,10 @@ def check_new_emails(service):
             print("Mail:", mail)
             print("-" * 50)
 
-            insert_mail_query = f"INSERT OR IGNORE INTO huzair_mails (id,sender,subject,date,mail) VALUES('{msg_id}', '{sender}', '{subject}', '{date}', '{mail}')"
-            cursor.execute(insert_mail_query)
+            cursor.execute(
+                "INSERT OR IGNORE INTO huzair_mails (id, sender, subject, date, mail) VALUES (?, ?, ?, ?, ?)",
+                (msg_id, sender, subject, date, mail)
+            )
             connection.commit()
             
             print("Email Stored In DB")
@@ -222,19 +222,9 @@ def main():
     creds = authenticate_gmail()
     service = build("gmail", "v1", credentials=creds)
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(lambda: check_new_emails(service), 'interval', minutes=1)
-    scheduler.start()
-
-    print("Gmail watcher started. Checking every 1 minute...")
+    check_new_emails(service)
 
     # Keep the script alive
-    try:
-        while True:
-            time.sleep(2)
-    except KeyboardInterrupt:
-        print("Stopping Gmail watcher...")
-        scheduler.shutdown()
 
 # -------- RUN SCRIPT --------
 if __name__ == "__main__":
